@@ -1,0 +1,13 @@
+#!/usr/bin/env node
+// Stand-in for a Claude CLI whose sign-in has quietly expired: `auth status`
+// says signed in, but any real call fails the way the CLI really does.
+if (process.argv.includes("auth")) {
+  process.stdout.write(JSON.stringify({ loggedIn: true, authMethod: "claude.ai", orgName: "Example Org, Inc.", subscriptionType: "enterprise" }));
+  process.exit(0);
+}
+process.stdin.resume();
+process.stdin.on("end", () => {
+  process.stderr.write("Permission deny rule (managed policy settings): Write(~/x/**) is not matched\n");
+  process.stdout.write("Failed to authenticate: OAuth session expired and could not be refreshed\n");
+  process.exit(1);
+});

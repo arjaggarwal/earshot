@@ -1,0 +1,18 @@
+# Never commit a private key
+keys/
+*.pem
+dist/
+log/
+node_modules/
+extension/_metadata/
+mac/.build/
+.DS_Store
+
+# Local AI-tool and secret files: never publish
+.claude/settings.local.json
+.claude/*.local.*
+CLAUDE.local.md
+.mcp.json
+.env
+.env.*
+*.key

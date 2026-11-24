@@ -1,0 +1,14 @@
+{
+	"systeminfo": "WHISPER : COREML = 0 | MTL : EMBED_LIBRARY = 1 | CPU : NEON = 1 | ",
+	"model": { "type": "large", "multilingual": true },
+	"params": { "model": "ggml-large-v3-turbo-q5_0.bin", "language": "en", "translate": false },
+	"result": { "language": "en" },
+	"transcription": [
+		{ "timestamps": { "from": "00:00:00,000", "to": "00:00:02,000" }, "offsets": { "from": 0, "to": 2000 }, "text": " Thanks everyone for joining." },
+		{ "timestamps": { "from": "00:00:02,400", "to": "00:00:04,000" }, "offsets": { "from": 2400, "to": 4000 }, "text": " Let's start with the budget." },
+		{ "timestamps": { "from": "00:00:06,500", "to": "00:00:08,000" }, "offsets": { "from": 6500, "to": 8000 }, "text": " Sure." },
+		{ "timestamps": { "from": "00:00:08,000", "to": "00:00:08,500" }, "offsets": { "from": 8000, "to": 8500 }, "text": " [BLANK_AUDIO]" },
+		{ "timestamps": { "from": "00:00:08,900", "to": "00:00:40,000" }, "offsets": { "from": 8900, "to": 40000 }, "text": " Long one." },
+		{ "timestamps": { "from": "00:00:40,100", "to": "00:00:41,000" }, "offsets": { "from": 40100, "to": 41000 }, "text": " After the cap." }
+	]
+}

@@ -1,0 +1,186 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Meet - abc-defg-hij</title>
+    <style>
+      body { margin: 0; background: #202124; font-family: sans-serif; }
+      .crqnQb { position: relative; width: 100%; height: 100vh; }
+      /* Apps fit a shared screen whole (contain) and crop cameras to fill their tiles (cover). */
+      #stage, #stagegl { position: absolute; left: 40px; top: 60px; width: 800px; height: 450px; object-fit: contain; }
+      #face { position: absolute; left: 40px; top: 540px; width: 240px; height: 135px; object-fit: cover; }
+    </style>
+    <script>
+      // Stands in for Google Meet's in-call plumbing: a peer connection whose
+      // data channels carry protobuf messages, a participant sync over fetch,
+      // a large shared-screen video and a smaller face tile.
+      function pb(entries) {
+        const out = [];
+        const varint = (v) => {
+          v = BigInt(v);
+          do {
+            let b = Number(v & 0x7fn);
+            v >>= 7n;
+            if (v) b |= 0x80;
+            out.push(b);
+          } while (v);
+        };
+        for (const [field, value] of entries) {
+          if (typeof value === "number" || typeof value === "bigint") {
+            varint((field << 3) | 0);
+            varint(value);
+          } else {
+            const body = Array.isArray(value) ? pb(value) : new TextEncoder().encode(value);
+            varint((field << 3) | 2);
+            varint(body.length);
+            out.push(...body);
+          }
+        }
+        return Uint8Array.from(out);
+      }
+      window.__pb = pb;
+      const gzip = async (bytes) => new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(new CompressionStream("gzip"))).arrayBuffer());
+
+      // Record what goes out on data channels; nothing is really connected, so don't let sends throw.
+      window.__sent = [];
+      const realSend = RTCDataChannel.prototype.send;
+      RTCDataChannel.prototype.send = function (data) {
+        window.__sent.push({ label: this.label, bytes: Array.from(new Uint8Array(data.buffer ? data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) : data)) });
+        try {
+          realSend.apply(this, arguments);
+        } catch {}
+      };
+      window.__opened = [];
+      const realCreate = RTCPeerConnection.prototype.createDataChannel;
+      RTCPeerConnection.prototype.createDataChannel = function (label, opts) {
+        const channel = realCreate.call(this, label, opts);
+        window.__opened.push({ label, id: opts && opts.id });
+        window.__channels = window.__channels || {};
+        window.__channels[label] = channel;
+        return channel;
+      };
+
+      const remote = (pc, label) => {
+        const channel = realCreate.call(pc, label);
+        pc.dispatchEvent(new RTCDataChannelEvent("datachannel", { channel }));
+        return channel;
+      };
+      const deliver = (channel, bytes) => channel.dispatchEvent(new MessageEvent("message", { data: bytes.buffer }));
+
+      window.__join = async function () {
+        const pc = new RTCPeerConnection();
+        window.__pc = pc;
+        window.__collections = remote(pc, "collections");
+        window.__mediaSession = remote(pc, "media-session");
+        Object.defineProperty(window.__mediaSession, "readyState", { get: () => "open" });
+        // Meet's own media-session traffic: a command numbered 7 and an ack numbered 12.
+        window.__mediaSession.send(pb([[1, [[2, [[1, 7]]]]]]));
+        window.__mediaSession.send(pb([[1, [[1, [[2, 12], [3, 1]]]]]]));
+        // Our own device arrives on collections, gzipped behind a 3-byte prefix.
+        await window.__device("spaces/sp1/devices/dev-me", "Alex Kestrel", true);
+        // The participant sync names our device in its request body.
+        await fetch("https://meet.google.com/$rpc/google.rtc.meetings.v1.MeetingSpaceService/SyncMeetingSpaceCollections", {
+          method: "POST",
+          body: "\n\u0019spaces/sp1/devices/dev-me",
+        });
+      };
+
+      // Today's Meet: the page opens media-session itself (no "datachannel"
+      // event), and with CC pressed it opens its own captions_v2 too.
+      window.__joinLocal = async function ({ ownCaptions = true } = {}) {
+        const pc = new RTCPeerConnection();
+        window.__pc = pc;
+        window.__mediaSession = pc.createDataChannel("media-session", { ordered: true });
+        Object.defineProperty(window.__mediaSession, "readyState", { get: () => "open" });
+        window.__mediaSession.dispatchEvent(new Event("open"));
+        window.__mediaSession.send(pb([[1, [[2, [[1, 3]]]]]]));
+        window.__mediaSession.send(pb([[1, [[1, [[2, 4], [3, 1]]]]]]));
+        if (ownCaptions) window.__meetV2 = pc.createDataChannel("captions_v2", { ordered: true });
+        window.__collections = remote(pc, "collections");
+        await window.__device("spaces/sp1/devices/dev-me", "Alex Kestrel", true);
+      };
+      // Meet's answer to a caption-config update: a message over 100 bytes holding a config number.
+      window.__configAnswer = function (seq) {
+        const pad = "x".repeat(120);
+        deliver(window.__mediaSession, pb([[1, [[1, 99], [4, [[1, seq]]], [7, pad]]]]));
+      };
+      window.__captionV2On = function (channel, utteranceId, version, deviceId, text) {
+        deliver(channel, pb([[1, [[1, utteranceId], [2, version], [3, [[3, text], [4, "en-US"], [6, deviceId]]]]]]));
+      };
+      // Meet's newer captions_v2 shape: the utterance sits one level deeper,
+      // next to a timing field; state packets carry no caption at all.
+      window.__captionV2Nested = function (channel, utteranceId, version, deviceId, text) {
+        deliver(channel, pb([[1, [[1, [[1, utteranceId], [2, version], [3, [[3, text], [4, "en-US"], [5, "en-US"], [6, deviceId]]]]], [6, [[1, 1717946400]]]]]]));
+      };
+      window.__controlV2 = function (channel) {
+        deliver(channel, Uint8Array.from([10, 20, 10, 4, 16, 1, 34, 0, 18, 4, 8, 1, 34, 0, 50, 6, 8, 145, 189, 211, 215, 6]));
+      };
+      // The server drops a caption channel mid-call.
+      window.__drop = function (channel) {
+        Object.defineProperty(channel, "readyState", { get: () => "closed", configurable: true });
+      };
+
+      window.__device = async function (id, name, prefixed) {
+        let bytes = await gzip(pb([[1, [[2, [[13, [[1, [[2, [[1, id], [2, name]]]]]]]]]]]]));
+        if (prefixed) bytes = Uint8Array.from([0, 0, 0, ...bytes]);
+        deliver(window.__collections, bytes);
+      };
+
+      window.__captionV2 = function (utteranceId, version, deviceId, text) {
+        deliver(window.__channels.captions_v2, pb([[1, [[1, utteranceId], [2, version], [3, [[3, text], [4, "en"], [6, deviceId]]]]]]));
+      };
+      window.__captionLegacy = function (messageId, version, deviceId, text) {
+        deliver(window.__channels.captions, pb([[1, [[1, deviceId], [2, messageId], [3, version], [6, text], [8, 1]]]]));
+      };
+
+      // What Meet really does on leave: closes the connection, which fires no event.
+      window.__leaveQuietly = function () {
+        Object.defineProperty(window.__pc, "connectionState", { get: () => "closed", configurable: true });
+      };
+
+      window.__leave = function () {
+        Object.defineProperty(window.__pc, "connectionState", { get: () => "closed" });
+        window.__pc.dispatchEvent(new Event("connectionstatechange"));
+      };
+    </script>
+  </head>
+  <body>
+    <div class="crqnQb">
+      <div data-meeting-title="Project check-in"></div>
+      <video id="stage" muted playsinline></video>
+      <div aria-label="Jordan Lee (Presentation)"><canvas id="stagegl" width="900" height="500" style="display: none; object-fit: fill"></canvas></div>
+      <video id="face" muted playsinline></video>
+    </div>
+    <script>
+      // The "shared screen": a 1280x720 slide; the face tile: a smaller, different picture.
+      function feed(video, w, h, color, label) {
+        const c = document.createElement("canvas");
+        c.width = w;
+        c.height = h;
+        const g = c.getContext("2d");
+        (function paint() {
+          g.fillStyle = color;
+          g.fillRect(0, 0, w, h);
+          g.fillStyle = "#fff";
+          g.font = `${Math.round(h / 10)}px sans-serif`;
+          g.fillText(label, w / 16, h / 3);
+          requestAnimationFrame(paint);
+        })();
+        video.srcObject = c.captureStream(30);
+        video.play();
+      }
+      feed(document.getElementById("stage"), 1280, 720, "#c0392b", "Q3 revenue slide");
+      feed(document.getElementById("face"), 320, 180, "#2e86de", "face");
+
+      // ?stage=webgl: the stage is a WebGL canvas whose pixels can't be read back.
+      if (new URLSearchParams(location.search).get("stage") === "webgl") {
+        document.getElementById("stage").style.display = "none";
+        const gl = document.getElementById("stagegl");
+        gl.style.display = "block";
+        const ctx = gl.getContext("webgl", { preserveDrawingBuffer: false });
+        ctx.clearColor(0.1, 0.6, 0.3, 1);
+        ctx.clear(ctx.COLOR_BUFFER_BIT);
+      }
+    </script>
+  </body>
+</html>

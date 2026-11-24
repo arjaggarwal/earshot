@@ -1,0 +1,16 @@
+{
+  "name": "earshot",
+  "version": "0.5.9",
+  "private": true,
+  "description": "Speaker-tagged meeting transcripts from Meet, Zoom and Teams, saved as Markdown and filed into an Obsidian vault.",
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "test:e2e": "node test/e2e.mjs",
+    "test:mac-panel": "node test/mac-panel.mjs",
+    "setup:e2e": "npx playwright-core install chromium"
+  },
+  "devDependencies": {
+    "playwright-core": "1.49.1"
+  }
+}

@@ -1,0 +1,68 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Fake Zoom web client</title>
+    <script>
+      // Stands in for Zoom's web client: a Redux-style store with the same
+      // slices the real one uses (meeting, newLiveTranscription, attendeesList)
+      // and a socket at WCSockets.instance.RWG.socket.
+      //   ?mode=trap  -> store made through a global Redux UMD bundle
+      //   ?mode=fiber -> store only reachable through the React tree
+      window.__mode = new URLSearchParams(location.search).get("mode") || "trap";
+      window.__makeStore = function (reducer) {
+        let state = reducer(undefined, { type: "@@INIT" });
+        const subs = new Set();
+        return {
+          getState: () => state,
+          subscribe(fn) { subs.add(fn); return () => subs.delete(fn); },
+          dispatch(action) { state = reducer(state, action); subs.forEach((fn) => fn()); return action; },
+        };
+      };
+      if (window.__mode === "trap") {
+        // UMD bundles assign the namespace object first and fill it in after.
+        window.Redux = {};
+        window.Redux.createStore = window.__makeStore;
+      }
+    </script>
+    <script>
+      const initial = {
+        meeting: { meetingJoinStatus: "connecting", meetingTopic: "" },
+        newLiveTranscription: { newLTMessage: {}, selectedTranscriptionLanguage: undefined },
+        attendeesList: { attendeesList: [] },
+        chat: { meetingChat: [] },
+      };
+      function reducer(s = initial, a) {
+        switch (a.type) {
+          case "JOIN": return { ...s, meeting: { ...s.meeting, meetingJoinStatus: "joined" } };
+          case "LEAVE": return { ...s, meeting: { ...s.meeting, meetingJoinStatus: "left" } };
+          case "TOPIC": return { ...s, meeting: { ...s.meeting, meetingTopic: a.topic } };
+          case "ROSTER": return { ...s, attendeesList: { attendeesList: a.people } };
+          case "LANG": return { ...s, newLiveTranscription: { ...s.newLiveTranscription, selectedTranscriptionLanguage: a.lang } };
+          case "LT": {
+            const lt = s.newLiveTranscription;
+            return { ...s, newLiveTranscription: { ...lt, newLTMessage: { ...lt.newLTMessage, [a.msg.msgId]: a.msg } } };
+          }
+          case "NOISE": return { ...s, noise: (s.noise || 0) + 1 };
+          default: return s;
+        }
+      }
+      window.__store = window.__mode === "trap" ? window.Redux.createStore(reducer) : window.__makeStore(reducer);
+      window.__sent = [];
+      window.WCSockets = { instance: { RWG: { socket: { readyState: 1, send: (d) => window.__sent.push(JSON.parse(d)) } } } };
+    </script>
+  </head>
+  <body>
+    <div id="root"><div class="meeting-app">fake meeting</div></div>
+    <script>
+      if (window.__mode === "fiber") {
+        const store = window.__store;
+        document.getElementById("root")["__reactContainer$fake123"] = {
+          memoizedProps: null,
+          child: { memoizedProps: { store }, child: { memoizedProps: { className: "x" } }, sibling: null },
+          sibling: null,
+        };
+      }
+    </script>
+  </body>
+</html>

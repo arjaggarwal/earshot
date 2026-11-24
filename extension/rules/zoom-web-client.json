@@ -1,0 +1,26 @@
+[
+  {
+    "id": 1,
+    "priority": 1,
+    "action": { "type": "redirect", "redirect": { "regexSubstitution": "https://zoom.us/wc/\\2/join\\3" } },
+    "condition": { "regexFilter": "^https://zoom\\.us/(j|w)/(\\d+)(.*)$", "resourceTypes": ["main_frame"] }
+  },
+  {
+    "id": 2,
+    "priority": 1,
+    "action": { "type": "redirect", "redirect": { "regexSubstitution": "https://\\1.zoom.us/wc/\\3/join\\4" } },
+    "condition": { "regexFilter": "^https://([a-z0-9-]+)\\.zoom\\.us/(j|w)/(\\d+)(.*)$", "resourceTypes": ["main_frame"] }
+  },
+  {
+    "id": 3,
+    "priority": 1,
+    "action": { "type": "redirect", "redirect": { "regexSubstitution": "https://zoom.us/wc/\\1/start\\2" } },
+    "condition": { "regexFilter": "^https://zoom\\.us/s/(\\d+)(.*)$", "resourceTypes": ["main_frame"] }
+  },
+  {
+    "id": 4,
+    "priority": 1,
+    "action": { "type": "redirect", "redirect": { "regexSubstitution": "https://\\1.zoom.us/wc/\\2/start\\3" } },
+    "condition": { "regexFilter": "^https://([a-z0-9-]+)\\.zoom\\.us/s/(\\d+)(.*)$", "resourceTypes": ["main_frame"] }
+  }
+]

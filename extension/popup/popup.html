@@ -1,0 +1,42 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Earshot</title>
+    <style>
+      body { margin: 0; width: 380px; font: 13px/1.45 -apple-system, system-ui, sans-serif; background: #16181d; color: #e8e9ec; }
+      header { padding: 12px 14px; border-bottom: 1px solid #2c2f36; font-weight: 600; display: flex; align-items: center; }
+      header button { margin-left: auto; }
+      section { padding: 10px 14px; border-bottom: 1px solid #2c2f36; }
+      label { display: flex; gap: 8px; align-items: center; margin: 5px 0; color: #c8cbd3; }
+      select { font: inherit; color: inherit; background: #252830; border: 1px solid #343843; border-radius: 6px; padding: 2px 4px; margin-left: auto; }
+      h2 { font-size: 12px; color: #a3a7b3; font-weight: 500; margin: 0 0 6px; text-transform: uppercase; letter-spacing: .04em; }
+      .meeting { padding: 8px 0; border-top: 1px solid #23262d; }
+      .meeting:first-of-type { border-top: 0; }
+      .title { font-weight: 600; }
+      .sub { color: #a3a7b3; font-size: 12px; }
+      .row { display: flex; gap: 6px; margin-top: 6px; }
+      button { font: inherit; color: inherit; background: #252830; border: 1px solid #343843; border-radius: 7px; padding: 4px 9px; cursor: pointer; }
+      button:hover { background: #2e323c; }
+      .empty { color: #6b7080; }
+      #list { max-height: 320px; overflow-y: auto; }
+    </style>
+  </head>
+  <body>
+    <header>Earshot <button id="openAll">All meetings</button></header>
+    <section>
+      <h2>Settings</h2>
+      <label><input type="checkbox" id="autoCaptions" /> Turn on meeting captions automatically when I join</label>
+      <label><input type="checkbox" id="redirectZoom" /> Open Zoom links in the web client</label>
+      <label>Caption language <select id="captionLanguage"></select></label>
+      <label>Panel <select id="panelMode"><option value="docked">Docked beside the meeting</option><option value="floating">Floating</option></select></label>
+    </section>
+    <section>
+      <h2>Recent meetings</h2>
+      <div id="list"><div class="empty">Loading…</div></div>
+    </section>
+    <script src="../shared/transcript.js"></script>
+    <script src="../shared/languages.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>

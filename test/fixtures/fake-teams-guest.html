@@ -1,0 +1,46 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Fake Teams guest meeting</title>
+    <script>
+      // Stands in for an anonymous ("light meetings") Teams join: caption
+      // results arrive as framed JSON on a "main-channel" data channel, and
+      // names arrive as gzipped, base64 roster updates on the trouter socket.
+      window.__pc = new RTCPeerConnection();
+      window.__mainChannel = window.__pc.createDataChannel("main-channel");
+      window.__socket = new WebSocket("wss://pub-ent-fake-t.trouter.teams.microsoft.com/v4/c?fake=1");
+
+      window.__frame = function (payload) {
+        const bytes = new TextEncoder().encode("\u0001\u0002" + JSON.stringify(payload));
+        window.__mainChannel.dispatchEvent(new MessageEvent("message", { data: bytes.buffer }));
+      };
+
+      window.__roster = async function (participants) {
+        const json = JSON.stringify({ participants });
+        const gz = await new Response(new Blob([json]).stream().pipeThrough(new CompressionStream("gzip"))).arrayBuffer();
+        const b64 = btoa(String.fromCharCode(...new Uint8Array(gz)));
+        const frame = "3:::" + JSON.stringify({ url: "https://trouter.fake/v4/f/abc/rosterUpdate/1", body: b64 });
+        window.__socket.dispatchEvent(new MessageEvent("message", { data: frame }));
+      };
+
+      // The call controls appear once you're in the meeting.
+      window.__showCallControls = function () {
+        const hangup = document.createElement("button");
+        hangup.id = "hangup-button";
+        const more = document.createElement("button");
+        more.id = "callingButtons-showMoreBtn";
+        more.onclick = () => {
+          const cc = document.createElement("button");
+          cc.id = "closed-captions-button";
+          cc.onclick = () => (window.__ccClicked = true);
+          document.body.appendChild(cc);
+        };
+        document.body.append(hangup, more);
+      };
+    </script>
+  </head>
+  <body>
+    <div id="app">fake teams guest meeting</div>
+  </body>
+</html>

@@ -1,0 +1,73 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Fake Teams web</title>
+    <script>
+      // Stands in for signed-in Teams web: a calling engine at
+      // window.msteamscalling (a WeakRef, like the real one) whose active call
+      // can start captions, lists participants, knows the meeting subject, and
+      // has a data-channel subscription that receives caption results on "3".
+      (function () {
+        const engine = {
+          callingService: {
+            callRegistry: { calls: [] },
+            getActiveCall: () => window.__activeCall || null,
+          },
+          myUserPreferencesStore: {
+            getUserPreferences: () => ({ callAccessibilitySettings: JSON.stringify({ profanityFilterEnabled: true }) }),
+          },
+        };
+        window.__engine = engine; // keeps the WeakRef target alive
+        window.msteamscalling = new WeakRef(engine);
+        window.__delivered = [];
+
+        window.__join = function (opts) {
+          const call = {
+            _callId: opts.callId,
+            state: 3,
+            callGotConnected: true,
+            participants: opts.participants,
+            currentUserSkypeIdentity: { mri: opts.selfMri, displayName: opts.selfName },
+            _cc: 0,
+            startClosedCaption() {
+              setTimeout(() => (this._cc = 2), 200);
+            },
+            closedCaptionsHaveBeenStarted() {
+              return this._cc === 2;
+            },
+            getClosedCaptionStatus() {
+              return this._cc;
+            },
+            getClosedCaptionsLanguage: () => "en-us",
+            getCallingConversation: () => ({ meetingInfo: { subject: opts.subject } }),
+            dataChannel: {
+              subscriptions: [
+                { eventHandler: { on: { name: "participantsChanged", handler() {} } } },
+                { eventHandler: { on: { name: "remoteUserEventsReceived", handler: (channel) => window.__delivered.push(channel) } } },
+              ],
+            },
+          };
+          engine.callingService.callRegistry.calls.push(call);
+          window.__activeCall = call;
+        };
+
+        window.__leave = function () {
+          window.__activeCall.state = 7;
+          window.__lastCall = window.__activeCall;
+          window.__activeCall = null;
+          engine.callingService.callRegistry.calls = [];
+        };
+
+        // What Teams does when caption results arrive on the call's data channel.
+        window.__caption = function (results) {
+          const on = window.__activeCall.dataChannel.subscriptions[1].eventHandler.on;
+          on.handler("3", JSON.stringify({ recognitionResults: results }));
+        };
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="app">fake teams</div>
+  </body>
+</html>
